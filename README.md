@@ -8,6 +8,8 @@
 
 ## 食用方法
 
+推荐使用ok影视，easybox
+
 配置文件sites添加内容参考 [example.json](https://github.com/lm317379829/PyramidStore/blob/main/example.json)
 
 **一定要开启存储权限！一定要开启存储权限！一定要开启存储权限！**
