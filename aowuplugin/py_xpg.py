@@ -1,7 +1,8 @@
 # coding=utf-8
 # !/usr/bin/python
 import sys
-sys.path.append('..')
+
+sys.path.append('')
 from base.spider import Spider
 from urllib.parse import quote
 
