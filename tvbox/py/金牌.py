@@ -11,7 +11,6 @@ import re
 import time
 import json
 import requests
-from pyquery import PyQuery as pq
 from urllib.parse import urlencode, quote
 
 from Crypto.Hash import MD5, SHA1
