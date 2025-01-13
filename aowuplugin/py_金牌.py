@@ -1,22 +1,38 @@
 # coding=utf-8
 # !/usr/bin/python
-# by嗷呜
+import json
 import sys
+import threading
 import uuid
-from base64 import b64decode
-
-sys.path.append('')
+from pprint import pprint
+import requests
+sys.path.append('..')
 from base.spider import Spider
 import time
-
 from Crypto.Hash import MD5, SHA1
-
-
 
 class Spider(Spider):
 
     def init(self, extend=""):
-        self.host = "https://www.tjrongze.com"
+        '''
+        {
+            "key": "",
+            "name": "",
+            "type": 3,
+            "api": "",
+            "searchable": 1,
+            "quickSearch": 1,
+            "filterable": 1,
+            "ext": {
+                "site": "https://www.tjrongze.com,https://www.jiabaide.cn,https://cqzuoer.com"
+            }
+        },
+        fm写法
+        '''
+        if extend:
+            hosts=json.loads(extend)['site']
+        # hosts = "https://www.tjrongze.com,https://www.jiabaide.cn,https://cqzuoer.com"
+        self.host = self.host_late(hosts)
         pass
 
     def getName(self):
@@ -30,45 +46,6 @@ class Spider(Spider):
 
     def destroy(self):
         pass
-
-    t=str(int(time.time()*1000))
-
-    def md5(self, sign_key):
-        md5_hash = MD5.new()
-        md5_hash.update(sign_key.encode('utf-8'))
-        md5_result = md5_hash.hexdigest()
-        return md5_result
-
-    def js(self, param):
-        return '&'.join(f"{k}={v}" for k, v in param.items())
-
-    def getheaders(self, param=None):
-        if param is None:param = {}
-        param['key']='cb808529bae6b6be45ecfab29a4889bc'
-        param['t']=self.t
-        sha1_hash = SHA1.new()
-        sha1_hash.update(self.md5(self.js(param)).encode('utf-8'))
-        sign = sha1_hash.hexdigest()
-        deviceid = uuid.UUID('44bdcb90-946c-4794-8291-1fe71098caf0')
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; ) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.6478.61 Chrome/126.0.6478.61 Not/A)Brand/8  Safari/537.36',
-            'Accept': 'application/json, text/plain, */*',
-            'sign': sign,
-            't': self.t,
-            'deviceid':str(deviceid)
-        }
-        return headers
-
-    def convert_field_name(self, field):
-        field = field.lower()
-        if field.startswith('vod') and len(field) > 3:
-            field = field.replace('vod', 'vod_')
-        if field.startswith('type') and len(field) > 4:
-            field = field.replace('type', 'type_')
-        return field
-
-    def getvod(self, array):
-        return [{self.convert_field_name(k): v for k, v in item.items()} for item in array]
 
     def homeContent(self, filter):
         cdata = self.fetch(f"{self.host}/api/mw-movie/anonymous/get/filer/type", headers=self.getheaders()).json()
@@ -176,21 +153,73 @@ class Spider(Spider):
         }
         ids=id.split('@@')
         pdata=self.fetch(f"{self.host}/api/mw-movie/anonymous/v1/video/episode/url?id={ids[0]}&nid={ids[1]}",headers=self.getheaders({'id':ids[0],'nid':ids[1]})).json()
-        # url = self.getProxyUrl() + "&url=" + b64encode(pdata['data']['playUrl'].encode('utf-8')).decode('utf-8') + "&type=m3u8"
         return {'parse':0,'url':pdata['data']['playUrl'],'header':self.header}
 
     def localProxy(self, param):
-        url = b64decode(param["url"]).decode('utf-8')
-        y = self.fetch(url, headers=self.header,allow_redirects=False)
-        data=y.content.decode('utf-8')
-        if y.status_code == 200 and y.headers.get('Location',''):
-            url = data.headers['Location']
-            data = self.fetch(url, headers=self.header).content.decode('utf-8')
-        durl = url[:url.rfind('/')]
-        lines = data.strip().split('\n')
-        for index, string in enumerate(lines):
-            if '#EXT' not in string and 'http' not in string:
-                lines[index] = durl + ('' if string.startswith('/') else '/') + string
-        data = '\n'.join(lines)
-        return [200, "application/vnd.apple.mpegur", data]
+        pass
+
+    def host_late(self, url_list):
+        if isinstance(url_list, str):
+            urls = [u.strip() for u in url_list.split(',')]
+        else:
+            urls = url_list
+        if len(urls) <= 1:
+            return urls[0] if urls else ''
+
+        results = {}
+        threads = []
+
+        def test_host(url):
+            try:
+                start_time = time.time()
+                response = requests.head(url, timeout=1.0, allow_redirects=False)
+                delay = (time.time() - start_time) * 1000
+                results[url] = delay
+            except Exception as e:
+                results[url] = float('inf')
+        for url in urls:
+            t = threading.Thread(target=test_host, args=(url,))
+            threads.append(t)
+            t.start()
+        for t in threads:
+            t.join()
+        return min(results.items(), key=lambda x: x[1])[0]
+
+    def md5(self, sign_key):
+        md5_hash = MD5.new()
+        md5_hash.update(sign_key.encode('utf-8'))
+        md5_result = md5_hash.hexdigest()
+        return md5_result
+
+    def js(self, param):
+        return '&'.join(f"{k}={v}" for k, v in param.items())
+
+    def getheaders(self, param=None):
+        if param is None:param = {}
+        t=str(int(time.time()*1000))
+        param['key']='cb808529bae6b6be45ecfab29a4889bc'
+        param['t']=t
+        sha1_hash = SHA1.new()
+        sha1_hash.update(self.md5(self.js(param)).encode('utf-8'))
+        sign = sha1_hash.hexdigest()
+        deviceid = str(uuid.uuid4())
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; ) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.6478.61 Chrome/126.0.6478.61 Not/A)Brand/8  Safari/537.36',
+            'Accept': 'application/json, text/plain, */*',
+            'sign': sign,
+            't': t,
+            'deviceid':deviceid
+        }
+        return headers
+
+    def convert_field_name(self, field):
+        field = field.lower()
+        if field.startswith('vod') and len(field) > 3:
+            field = field.replace('vod', 'vod_')
+        if field.startswith('type') and len(field) > 4:
+            field = field.replace('type', 'type_')
+        return field
+
+    def getvod(self, array):
+        return [{self.convert_field_name(k): v for k, v in item.items()} for item in array]
 
