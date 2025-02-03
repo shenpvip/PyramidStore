@@ -70,6 +70,14 @@ class Spider(Spider):
             print(f"Error in get_vdata: {str(e)}")
             return {'data': {'module_list_datas': []}}
 
+    def build_params(self, params, skip_empty=False):
+        query = []
+        for k, v in params.items():
+            if skip_empty and not v:
+                continue
+            query.append(f"{k}={v}")
+        return "&".join(query)
+
     def homeContent(self, filter):
         cdata = {
             "电视剧": "100113",
