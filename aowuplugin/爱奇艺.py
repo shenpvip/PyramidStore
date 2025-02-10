@@ -254,16 +254,3 @@ class Spider(Spider):
     def random_str(self,length=16):
         hex_chars = '0123456789abcdef'
         return ''.join(random.choice(hex_chars) for _ in range(length))
-
-
-if __name__ == "__main__":
-    sp = Spider()
-    formatJo = sp.init([])
-    # formatJo = sp.homeContent(False)  # 主页，等于真表示启用筛选
-    # formatJo = sp.homeVideoContent()  # 主页视频
-    # formatJo = sp.searchContent("哥斯拉2",False,'1') # 搜索{"area":"大陆","by":"hits","class":"国产","lg":"国语"}
-    # formatJo = sp.categoryContent('1', '1', False, {})  # 分类
-    formatJo = sp.detailContent(['4685149906616700@aHR0cDovL3d3dy5pcWl5aS5jb20vdl8xanV3a3psODl4cy5odG1s'])  # 详情
-    # formatJo = sp.playerContent("","https://www.yingmeng.net/vodplay/140148-2-1.html",{}) # 播放
-    # formatJo = sp.localProxy({"":"https://www.yingmeng.net/vodplay/140148-2-1.html"}) # 播放
-    pprint(formatJo)
