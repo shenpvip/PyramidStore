@@ -216,9 +216,6 @@ class Spider(Spider):
             return self.handle_exception(None, "No pdata available")
 
         try:
-            d = vdata['data']['module_list_datas'][0]['module_datas'][0]['item_data_lists']['item_datas'][0][
-                'item_params']
-            actors = []
             star_list = vdata['data']['module_list_datas'][0]['module_datas'][0]['item_data_lists']['item_datas'][
                 0].get('sub_items', {}).get('star_list', {}).get('item_datas', [])
             actors = [star['item_params']['name'] for star in star_list]
