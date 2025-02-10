@@ -4,10 +4,11 @@
 import json
 import sys
 import uuid
+import copy
 sys.path.append('..')
 from base.spider import Spider
 from pyquery import PyQuery as pq
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 
 class Spider(Spider):
@@ -45,38 +46,6 @@ class Spider(Spider):
         'origin': host,
         'referer': f'{host}/'
     }
-
-    def gethtml(self, url):
-        rsp = self.fetch(url, headers=self.headers)
-        rsp = self.cleanText(rsp.text)
-        return pq(rsp)
-
-    def get_filter_data(self, cid):
-        hbody = self.dbody.copy()
-        hbody['page_params']['channel_id'] = cid
-        data = self.post(
-            f'{self.apihost}/trpc.universal_backend_service.page_server_rpc.PageServer/GetPageData?video_appid=1000005&vplatform=2&vversion_name=8.9.10&new_mark_label_enabled=1',
-            json=hbody, headers=self.headers).json()
-        return cid, data
-
-    def get_vdata(self, body):
-        try:
-            vdata = self.post(
-                f'{self.apihost}/trpc.universal_backend_service.page_server_rpc.PageServer/GetPageData?video_appid=3000010&vplatform=2&vversion_name=8.2.96',
-                json=body, headers=self.headers
-            ).json()
-            return vdata
-        except Exception as e:
-            print(f"Error in get_vdata: {str(e)}")
-            return {'data': {'module_list_datas': []}}
-
-    def build_params(self, params, skip_empty=False):
-        query = []
-        for k, v in params.items():
-            if skip_empty and not v:
-                continue
-            query.append(f"{k}={v}")
-        return "&".join(query)
 
     def homeContent(self, filter):
         cdata = {
@@ -175,7 +144,7 @@ class Spider(Spider):
         if pg == '1':
             self.body = self.dbody.copy()
         self.body['page_params']['channel_id'] = tid
-        self.body['page_params']['filter_params'] = self.build_params(params)
+        self.body['page_params']['filter_params'] = self.josn_to_params(params)
         data = self.post(
             f'{self.apihost}/trpc.universal_backend_service.page_server_rpc.PageServer/GetPageData?video_appid=1000005&vplatform=2&vversion_name=8.9.10&new_mark_label_enabled=1',
             json=self.body, headers=self.headers).json()
@@ -242,66 +211,27 @@ class Spider(Spider):
             vdata = future_detail.result()
             data = future_episodes.result()
 
-        try:
-            pdata = data['data']['module_list_datas'][-1]['module_datas'][-1]['item_data_lists']['item_datas']
-            if tabs := data['data']['module_list_datas'][-1]['module_datas'][-1]['module_params'].get('tabs'):
-                tabs = json.loads(tabs)
-                with ThreadPoolExecutor(max_workers=len(tabs[1:])) as executor:
-                    futures = []
-                    for tab in tabs[1:]:
-                        nbody = body.copy()
-                        nbody['page_params']['page_context'] = tab['page_context']
-                        futures.append(executor.submit(self.get_vdata, nbody))
-                    for future in futures:
-                        ndata = future.result()
-                        pdata.extend(
-                            ndata['data']['module_list_datas'][-1]['module_datas'][-1]['item_data_lists']['item_datas'])
-        except Exception as e:
-            print(f"Error processing episodes: {str(e)}")
-            pdata = []
+        pdata = self.process_tabs(data, body, ids)
+        if not pdata:
+            return self.handle_exception(None, "No pdata available")
 
         try:
             d = vdata['data']['module_list_datas'][0]['module_datas'][0]['item_data_lists']['item_datas'][0][
                 'item_params']
             actors = []
-            if star_list := \
-                    vdata['data']['module_list_datas'][0]['module_datas'][0]['item_data_lists']['item_datas'][0][
-                        'sub_items'].get('star_list', {}).get('item_datas', []):
-                actors = [star['item_params']['name'] for star in star_list]
+            star_list = vdata['data']['module_list_datas'][0]['module_datas'][0]['item_data_lists']['item_datas'][
+                0].get('sub_items', {}).get('star_list', {}).get('item_datas', [])
+            actors = [star['item_params']['name'] for star in star_list]
             names = ['腾讯视频', '预告片']
-            plist = []
-            ylist = []
-            for k in pdata:
-                if k.get('item_id'):
-                    pid = f"{k['item_params']['union_title']}${ids[0]}@{k['item_id']}"
-                    if '预告' in k['item_params']['union_title']:
-                        ylist.append(pid)
-                    else:
-                        plist.append(pid)
-            if not len(plist):
+            plist, ylist = self.process_pdata(pdata, ids)
+            if not plist:
                 del names[0]
-            if not len(ylist):
+            if not ylist:
                 del names[1]
-            urls = []
-            if len(plist):
-                urls.append('#'.join(plist))
-            if len(ylist):
-                urls.append('#'.join(ylist))
-            vod = {
-                'type_name': d.get('sub_genre', ''),
-                'vod_name': d.get('title', ''),
-                'vod_year': d.get('year', ''),
-                'vod_area': d.get('area_name', ''),
-                'vod_remarks': d.get('holly_online_time', '') or d.get('hotval', ''),
-                'vod_actor': ','.join(actors),
-                'vod_content': d.get('cover_description', ''),
-                'vod_play_from': '$$$'.join(names),
-                'vod_play_url': '$$$'.join(urls)
-            }
+            vod = self.build_vod(vdata, actors, plist, ylist, names)
             return {'list': [vod]}
         except Exception as e:
-            print(f"Error processing detail: {str(e)}")
-            return {'list': []}
+            return self.handle_exception(e, "Error processing detail")
 
     def searchContent(self, key, quick, pg="1"):
         body = {"version": "24072901", "clientType": 1, "filterValue": "", "uuid": str(uuid.uuid4()), "retry": 0,
@@ -338,3 +268,102 @@ class Spider(Spider):
 
     def localProxy(self, param):
         pass
+
+    def gethtml(self, url):
+        rsp = self.fetch(url, headers=self.headers)
+        rsp = self.cleanText(rsp.text)
+        return pq(rsp)
+
+    def get_filter_data(self, cid):
+        hbody = self.dbody.copy()
+        hbody['page_params']['channel_id'] = cid
+        data = self.post(
+            f'{self.apihost}/trpc.universal_backend_service.page_server_rpc.PageServer/GetPageData?video_appid=1000005&vplatform=2&vversion_name=8.9.10&new_mark_label_enabled=1',
+            json=hbody, headers=self.headers).json()
+        return cid, data
+
+    def get_vdata(self, body):
+        try:
+            vdata = self.post(
+                f'{self.apihost}/trpc.universal_backend_service.page_server_rpc.PageServer/GetPageData?video_appid=3000010&vplatform=2&vversion_name=8.2.96',
+                json=body, headers=self.headers
+            ).json()
+            # print(body)
+            return vdata
+        except Exception as e:
+            print(f"Error in get_vdata: {str(e)}")
+            return {'data': {'module_list_datas': []}}
+
+    def process_pdata(self, pdata, ids):
+        plist = []
+        ylist = []
+        for k in pdata:
+            if k.get('item_id'):
+                pid = f"{k['item_params']['union_title']}${ids[0]}@{k['item_id']}"
+                if '预告' in k['item_params']['union_title']:
+                    ylist.append(pid)
+                else:
+                    plist.append(pid)
+        return plist, ylist
+
+    def build_vod(self, vdata, actors, plist, ylist, names):
+        d = vdata['data']['module_list_datas'][0]['module_datas'][0]['item_data_lists']['item_datas'][0]['item_params']
+        urls = []
+        if plist:
+            urls.append('#'.join(plist))
+        if ylist:
+            urls.append('#'.join(ylist))
+        vod = {
+            'type_name': d.get('sub_genre', ''),
+            'vod_name': d.get('title', ''),
+            'vod_year': d.get('year', ''),
+            'vod_area': d.get('area_name', ''),
+            'vod_remarks': d.get('holly_online_time', '') or d.get('hotval', ''),
+            'vod_actor': ','.join(actors),
+            'vod_content': d.get('cover_description', ''),
+            'vod_play_from': '$$$'.join(names),
+            'vod_play_url': '$$$'.join(urls)
+        }
+        return vod
+
+    def handle_exception(self, e, message):
+        print(f"{message}: {str(e)}")
+        return {'list': [{'vod_play_from': '哎呀翻车啦', 'vod_play_url': '翻车啦#555'}]}
+
+    def process_tabs(self, data, body, ids):
+        try:
+            pdata = data['data']['module_list_datas'][-1]['module_datas'][-1]['item_data_lists']['item_datas']
+            tabs = data['data']['module_list_datas'][-1]['module_datas'][-1]['module_params'].get('tabs')
+            if tabs:
+                tabs = json.loads(tabs)
+                remaining_tabs = tabs[1:]
+                task_queue = []
+                for tab in remaining_tabs:
+                    nbody = copy.deepcopy(body)
+                    nbody['page_params']['page_context'] = tab['page_context']
+                    task_queue.append(nbody)
+                with ThreadPoolExecutor(max_workers=10) as executor:
+                    future_map = {executor.submit(self.get_vdata, task): idx for idx, task in enumerate(task_queue)}
+                    results = [None] * len(task_queue)
+                    for future in as_completed(future_map.keys()):
+                        idx = future_map[future]
+                        results[idx] = future.result()
+                    for result in results:
+                        if result:
+                            page_data = result['data']['module_list_datas'][-1]['module_datas'][-1]['item_data_lists'][
+                                'item_datas']
+                            pdata.extend(page_data)
+            return pdata
+        except Exception as e:
+            print(f"Error processing episodes: {str(e)}")
+            return []
+
+    def josn_to_params(self, params, skip_empty=False):
+        query = []
+        for k, v in params.items():
+            if skip_empty and not v:
+                continue
+            query.append(f"{k}={v}")
+        return "&".join(query)
+
+
