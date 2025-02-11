@@ -1,9 +1,9 @@
 # coding=utf-8
 # !/usr/bin/python
+# by嗷呜
 import sys
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from pprint import pprint
 sys.path.append('..')
 from base.spider import Spider
 
@@ -205,16 +205,3 @@ class Spider(Spider):
             return data, ldata
         else:
             return ldata
-
-
-if __name__ == "__main__":
-    sp = Spider()
-    formatJo = sp.init([])
-    # formatJo = sp.homeContent(False)  # 主页，等于真表示启用筛选
-    # formatJo = sp.homeVideoContent()  # 主页视频
-    # formatJo = sp.searchContent("斗罗",False,'1') # 搜索{"area":"大陆","by":"hits","class":"国产","lg":"国语"}
-    # formatJo = sp.categoryContent('2', '1', False, {})  # 分类
-    # formatJo = sp.detailContent(['21755619'])  # 详情
-    # formatJo = sp.playerContent("","https://www.yingmeng.net/vodplay/140148-2-1.html",{}) # 播放
-    # formatJo = sp.localProxy({"":"https://www.yingmeng.net/vodplay/140148-2-1.html"}) # 播放
-    pprint(formatJo)
