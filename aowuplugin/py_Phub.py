@@ -178,7 +178,7 @@ class Spider(Spider):
                 udata = json.loads(json_str)
                 plist = [
                     f"{media['height']}${self.e64(f'{0}@@@@{url}')}"
-                    for media in udata
+                    for media in udata[:-1]
                     if (url := media.get('videoUrl'))
                 ]
         except Exception as e:
