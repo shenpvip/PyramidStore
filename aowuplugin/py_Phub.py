@@ -139,11 +139,13 @@ class Spider(Spider):
         elif 'playlists_click' in tid:
             tid=tid.split('click_')[-1]
             if pg=='1':
-                hdata=self.getpq(tid)
+                hdata=self.getpq(tid,None,True)
                 self.token=hdata('#searchInput').attr('data-token')
-            tid=tid.split('playlist/')[-1]
-            data=self.getpq(f'/playlist/viewChunked?id={tid}&token={self.token}&page={pg}')
-            vdata=self.getlist(data('.pcVideoListItem .phimage'))
+                vdata = self.getlist(hdata('#videoPlaylist .pcVideoListItem .phimage'))
+            else:
+                tid=tid.split('playlist/')[-1]
+                data=self.getpq(f'/playlist/viewChunked?id={tid}&token={self.token}&page={pg}',self.cookies)
+                vdata=self.getlist(data('.pcVideoListItem .phimage'))
         elif 'director_click' in tid:
             tid=tid.split('click_')[-1]
             data=self.getpq(f'{tid}/videos?page={pg}')
@@ -227,6 +229,8 @@ class Spider(Spider):
             })
         return vlist
 
-    def getpq(self,path):
-        data=self.fetch(f'{self.host}{path}', headers=self.headers).content.decode()
-        return pq(self.cleanText(data))
+    def getpq(self,path,cookies=None,getck=False):
+        data=self.fetch(f'{self.host}{path}', headers=self.headers,cookies=cookies)
+        if getck:
+            self.cookies=data.cookies
+        return pq(self.cleanText(data.content.decode('utf-8')))
