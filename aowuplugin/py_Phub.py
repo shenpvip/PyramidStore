@@ -6,6 +6,7 @@ import re
 import sys
 from pyquery import PyQuery as pq
 from base64 import b64decode, b64encode
+from requests import Session
 sys.path.append('..')
 from base.spider import Spider
 
@@ -13,6 +14,8 @@ from base.spider import Spider
 class Spider(Spider):
 
     def init(self, extend=""):
+        self.session = Session()
+        self.session.headers.update(self.headers)
         pass
 
     def getName(self):
@@ -27,7 +30,7 @@ class Spider(Spider):
     def destroy(self):
         pass
 
-    host = "https://www.pornhub.com"
+    host = "https://cn.pornhub.com"
 
     headers = {
         'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.5410.0 Safari/537.36',
@@ -139,12 +142,12 @@ class Spider(Spider):
         elif 'playlists_click' in tid:
             tid=tid.split('click_')[-1]
             if pg=='1':
-                hdata=self.getpq(tid,None,True)
+                hdata=self.getpq(tid)
                 self.token=hdata('#searchInput').attr('data-token')
                 vdata = self.getlist(hdata('#videoPlaylist .pcVideoListItem .phimage'))
             else:
                 tid=tid.split('playlist/')[-1]
-                data=self.getpq(f'/playlist/viewChunked?id={tid}&token={self.token}&page={pg}',self.cookies)
+                data=self.getpq(f'/playlist/viewChunked?id={tid}&token={self.token}&page={pg}')
                 vdata=self.getlist(data('.pcVideoListItem .phimage'))
         elif 'director_click' in tid:
             tid=tid.split('click_')[-1]
@@ -229,8 +232,10 @@ class Spider(Spider):
             })
         return vlist
 
-    def getpq(self,path,cookies=None,getck=False):
-        data=self.fetch(f'{self.host}{path}', headers=self.headers,cookies=cookies)
-        if getck:
-            self.cookies=data.cookies
-        return pq(self.cleanText(data.content.decode('utf-8')))
+    def getpq(self, path):
+        try:
+            response = self.session.get(f'{self.host}{path}')
+            return pq(self.cleanText(response.content.decode('utf-8')))
+        except Exception as e:
+            print(f"请求失败: , {str(e)}")
+            return None
