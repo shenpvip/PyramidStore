@@ -69,7 +69,7 @@ class Spider(Spider):
                 'type_name': k,
                 'type_id': cateManual[k]
             })
-            if k !='/4K':filters[k]=[{'key':'type','name':'类型','value':[{'n':'4K','v':'/4k'}]}]
+            if k !='/4K':filters[cateManual[k]]=[{'key':'type','name':'类型','value':[{'n':'4K','v':'/4k'}]}]
         result['class'] = classes
         result['filters'] = filters
         return result
