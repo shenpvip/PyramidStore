@@ -15,7 +15,7 @@ class Spider(Spider):
 
     def init(self, extend=""):
         self.host=self.gethost()
-        self.headers['referer']=self.host
+        self.headers['referer']=f'{self.host}/'
         self.session = Session()
         self.session.headers.update(self.headers)
         pass
