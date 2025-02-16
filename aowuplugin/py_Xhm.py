@@ -169,8 +169,10 @@ class Spider(Spider):
                     if url := info.get('url'):
                         encoded = self.e64(f'{0}@@@@{url}')
                         plist.append(f"{format_type}${encoded}")
-            if f and f.get('av1'):ah.extend(f['av1'])
-            if f and f.get('h264'):ah.extend(f['av1'])
+            if f:
+                for key, value in f.items():
+                    if isinstance(value, list):
+                        ah.extend(value)
             if len(ah):
                 for info in ah:
                     id = self.e64(f'{0}@@@@{info.get("url") or info.get("fallback")}')
