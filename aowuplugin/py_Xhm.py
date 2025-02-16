@@ -163,17 +163,16 @@ class Spider(Spider):
             plist = []
             d = djs['xplayerSettings']['sources']
             f = d.get('standard')
+            ah=[]
             if d.get('hls'):
                 for format_type, info in d['hls'].items():
                     if url := info.get('url'):
                         encoded = self.e64(f'{0}@@@@{url}')
                         plist.append(f"{format_type}${encoded}")
-            if f and f.get('av1'):
-                for info in f['av1']:
-                    id = self.e64(f'{0}@@@@{info.get("url") or info.get("fallback")}')
-                    plist.append(f"{info.get('label') or info.get('quality')}${id}")
-            if f and f.get('h264'):
-                for info in f['h264']:
+            if f and f.get('av1'):ah.extend(f['av1'])
+            if f and f.get('h264'):ah.extend(f['av1'])
+            if len(ah):
+                for info in ah:
                     id = self.e64(f'{0}@@@@{info.get("url") or info.get("fallback")}')
                     plist.append(f"{info.get('label') or info.get('quality')}${id}")
         except Exception as e:
