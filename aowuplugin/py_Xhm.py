@@ -56,6 +56,7 @@ class Spider(Spider):
         result = {}
         cateManual = {
             "4K": "/4k",
+            "国产": "two_click_/categories/chinese",
             "最新": "/newest",
             "最佳": "/best",
             "频道": "/channels",
