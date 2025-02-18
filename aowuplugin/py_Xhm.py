@@ -178,7 +178,7 @@ class Spider(Spider):
         except Exception as e:
             plist = [f"{vn}${self.e64(f'{1}@@@@{ids[0]}')}"]
             print(f"获取视频信息失败: {str(e)}")
-        vod['vod_play_url'] = '#'.join(plist)
+        vod['vod_play_url'] = '#'.join(plist.sort(reverse=True))
         return {'list': [vod]}
 
     def searchContent(self, key, quick, pg="1"):
