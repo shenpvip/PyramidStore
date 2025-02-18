@@ -7,7 +7,6 @@ import random
 import sys
 import time
 import uuid
-from pprint import pprint
 from base64 import b64decode, b64encode
 from Crypto.Cipher import AES
 from Crypto.Hash import MD5
