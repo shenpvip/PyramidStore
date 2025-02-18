@@ -164,12 +164,12 @@ class Spider(Spider):
             plist = []
             d = djs['xplayerSettings']['sources']
             f = d.get('standard')
-            def custom_sort_key(item):
-                prefix = item.split("$")[0]
-                if prefix.isdigit():
-                    return 0, int(prefix)
-                else:
-                    return 1, prefix
+            def custom_sort_key(url):
+                quality = url.split('$')[0]
+                number = ''.join(filter(str.isdigit, quality))
+                number = int(number) if number else 0
+                return -number, quality
+                
             if f:
                 for key, value in f.items():
                     if isinstance(value, list):
