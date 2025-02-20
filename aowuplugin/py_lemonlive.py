@@ -462,24 +462,25 @@ class Spider(Spider):
 
     def huyaDetail(self, ids):
         try:
-            vdata=self.fetch(f'{self.hosts[ids[0]][1]}/cache.php?m=Live&do=profileRoom&roomid={ids[1]}', headers=self.headers[0]).json()
-            v=vdata['data']['liveData']
+            vdata = self.fetch(f'{self.hosts[ids[0]][1]}/cache.php?m=Live&do=profileRoom&roomid={ids[1]}',
+                               headers=self.headers[0]).json()
+            v = vdata['data']['liveData']
             vod = self.buildvod(
                 vod_name=v.get('introduction'),
                 type_name=v.get('gameFullName'),
                 vod_director=v.get('nick'),
                 vod_remarks=v.get('contentIntro'),
             )
-            data = vdata['data']['stream']
+            data = dict(reversed(list(vdata['data']['stream'].items())))
             names = []
             plist = []
+
             for stream_type, stream_data in data.items():
                 if isinstance(stream_data, dict) and 'multiLine' in stream_data and 'rateArray' in stream_data:
                     names.append(f"线路{len(names) + 1}")
-
                     qualities = sorted(
                         stream_data['rateArray'],
-                        key=lambda x: x['iBitRate'],
+                        key=lambda x: (x['iBitRate'], x['sDisplayName']),
                         reverse=True
                     )
                     cdn_urls = []
@@ -505,6 +506,7 @@ class Spider(Spider):
                             quality_urls.extend([quality_name, new_url])
                         encoded_urls = self.e64(json.dumps(quality_urls))
                         cdn_urls.append(f"{cdn['cdnType']}${ids[0]}@@{encoded_urls}")
+
                     if cdn_urls:
                         plist.append('#'.join(cdn_urls))
             vod['vod_play_from'] = "$$$".join(names)
