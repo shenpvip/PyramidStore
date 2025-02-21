@@ -62,12 +62,13 @@ spider提供了一些需要被实现的方法和一些公共方法，请自行�
 ```
 ##### 3. 配置写法
 
-* 所有文件以 py_ 开头
+* key以 py_ 开头
 * ext写extend内容
 * api写py的网络地址或者本地地址
 
 ```json
 {
+    # key值必须以py_开头
     "key": "py_bilibilivd",
     "name": "B站",
     "type": 3,
