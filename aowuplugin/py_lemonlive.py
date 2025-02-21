@@ -303,7 +303,7 @@ class Spider(Spider):
             for i in self.dyifdata['categoryData']:
                 c = i['partition']
                 if c['id_str'] == ids[0] and c['title'] == ids[1]:
-                    vlist = i['sub_partition']
+                    vlist = i['sub_partition'].copy()
                     vlist.insert(0, {'partition': c})
                     for j in vlist:
                         j = j['partition']
